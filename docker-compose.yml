@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ledgerflow_db
+    environment:
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ledger123
+      POSTGRES_DB: ledgerflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger -d ledgerflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: ledgerflow_api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://ledger:ledger123@db:5432/ledgerflow
+      DEBUG: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  pgdata:
